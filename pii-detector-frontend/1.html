@@ -50,33 +50,33 @@
   </div>
 
   <script>
-    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
-      e.preventDefault();
+  document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
 
-      const formData = new FormData(this);
-      const resultDiv = document.getElementById('result');
-      resultDiv.innerHTML = 'Uploading...';
+    const formData = new FormData(this);
+    const resultDiv = document.getElementById('result');
+    resultDiv.innerHTML = 'Uploading...';
 
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/upload/', {
-          method: 'POST',
-          body: formData
-        });
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/upload/', {
+        method: 'POST',
+        body: formData
+      });
 
-        if (!response.ok) throw new Error('Upload failed');
+      if (!response.ok) throw new Error('Upload failed');
 
-        const data = await response.json();
+      const data = await response.json();
 
-        resultDiv.innerHTML = `
-          <h3>Upload Success ✅</h3>
-          <p><strong>File Path:</strong> ${data.file.file}</p>
-          <h4>Detected PII:</h4>
-          <pre>${JSON.stringify(data.pii_detection, null, 2)}</pre>
-        `;
-      } catch (error) {
-        resultDiv.innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
-      }
-    });
-  </script>
+      resultDiv.innerHTML = `
+        <h3>Upload Success ✅</h3>
+        <h4>Detected PII:</h4>
+        <pre>${JSON.stringify(data.results, null, 2)}</pre>
+      `;
+    } catch (error) {
+      resultDiv.innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
+    }
+  });
+</script>
+
 </body>
 </html>
