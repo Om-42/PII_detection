@@ -1,56 +1,106 @@
-# from django.shortcuts import render
 # from rest_framework.views import APIView
 # from rest_framework.response import Response
 # from rest_framework import status
-# from .models import Document
-# from .serializers import DocumentSerializer
-# from .pii_detector import detect_pii  # we will create this soon
-
+# from .pii_detector import IDValidator
 
 # class DocumentUploadView(APIView):
-#     def post(self, request, *args, **kwargs):
-#         file_serializer = DocumentSerializer(data=request.data)
-#         if file_serializer.is_valid():
-#             document = file_serializer.save()
-
-#             # Read uploaded file content
-#             try:
-#                 with open(document.file.path, 'r', encoding='utf-8') as f:
-#                     content = f.read()
-#             except Exception as e:
-#                 return Response({'error': f'File read error: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
-
-#             # Run PII Detection
-#             pii_results = detect_pii(content)
-
-#             return Response({
-#                 'file': file_serializer.data,
-#                 'pii_detection': pii_results
-#             }, status=status.HTTP_201_CREATED)
+#     def post(self, request, format=None):
+#         uploaded_file = request.FILES.get('file')
         
-#         return Response(file_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         if not uploaded_file:
+#             return Response({"error": "No file was uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
+#         # Read file contents
+#         try:
+#             file_data = uploaded_file.read().decode('utf-8')
+#         except UnicodeDecodeError:
+#             return Response({"error": "Unable to decode file content. Please upload a valid text file."},
+#                             status=status.HTTP_400_BAD_REQUEST)
+
+#         # PII Detection
+#         validator = IDValidator()
+#         results = validator.find_ids(file_data)
+
+#         return Response({"results": results}, status=status.HTTP_200_OK)
+#----------------------------------------------------
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from rest_framework import status
+# from .pii_detector import IDValidator
+# import pytesseract
+# from PIL import Image
+# from django.core.files.storage import default_storage
+
+# class DocumentUploadView(APIView):
+#     def post(self, request, format=None):
+#         uploaded_file = request.FILES.get('file')
+        
+#         if not uploaded_file:
+#             return Response({"error": "No file was uploaded."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Check file type and extract text accordingly
+#         if uploaded_file.content_type.startswith('image'):
+#             # Save uploaded image temporarily
+#             file_path = default_storage.save(uploaded_file.name, uploaded_file)
+#             try:
+#                 image = Image.open(default_storage.open(file_path))
+#                 file_data = pytesseract.image_to_string(image)
+#             except Exception as e:
+#                 default_storage.delete(file_path)
+#                 return Response({"error": f"Failed to process image: {str(e)}"},
+#                                 status=status.HTTP_400_BAD_REQUEST)
+#             finally:
+#                 # Clean up saved file
+#                 default_storage.delete(file_path)
+#         else:
+#             # Assume text file and decode
+#             try:
+#                 file_data = uploaded_file.read().decode('utf-8')
+#             except UnicodeDecodeError:
+#                 return Response({"error": "Unable to decode file content. Please upload a valid text file."},
+#                                 status=status.HTTP_400_BAD_REQUEST)
+
+#         # Run PII Detection on extracted text
+#         validator = IDValidator()
+#         results = validator.find_ids(file_data)
+
+#         return Response({"results": results}, status=status.HTTP_200_OK)
+
+#----------------------------------------------------
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .pii_detector import IDValidator
+import pytesseract
+from PIL import Image
+import io
 
 class DocumentUploadView(APIView):
     def post(self, request, format=None):
         uploaded_file = request.FILES.get('file')
-        
+
         if not uploaded_file:
             return Response({"error": "No file was uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Read file contents
-        try:
-            file_data = uploaded_file.read().decode('utf-8')
-        except UnicodeDecodeError:
-            return Response({"error": "Unable to decode file content. Please upload a valid text file."},
-                            status=status.HTTP_400_BAD_REQUEST)
+        # Check if uploaded file is image or text
+        content_type = uploaded_file.content_type
 
-        # PII Detection
+        try:
+            if content_type.startswith('image/'):
+                # Process image with OCR
+                image = Image.open(uploaded_file)
+                text = pytesseract.image_to_string(image)
+            elif content_type == 'text/plain':
+                # Process text file
+                text = uploaded_file.read().decode('utf-8')
+            else:
+                return Response({"error": "Unsupported file type."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Failed to process file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Run PII detection on extracted text
         validator = IDValidator()
-        results = validator.find_ids(file_data)
+        results = validator.find_ids(text)
 
         return Response({"results": results}, status=status.HTTP_200_OK)
+#----------------------------------------------------
