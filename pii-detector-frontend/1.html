@@ -1,89 +1,6 @@
 <!-- <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PII Document Upload</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 2rem;
-      background-color: #f5f5f5;
-    }
-    .container {
-      background-color: white;
-      border-radius: 10px;
-      padding: 2rem;
-      max-width: 500px;
-      margin: auto;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-    input[type="file"] {
-      margin-bottom: 1rem;
-    }
-    button {
-      background-color: #007bff;
-      color: white;
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    pre {
-      background: #e8e8e8;
-      padding: 1rem;
-      white-space: pre-wrap;
-      border-radius: 5px;
-      margin-top: 1rem;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h2>Upload a Document</h2>
-    <form id="uploadForm">
-      <input type="file" name="file" accept=".txt" required />
-      <br>
-      <button type="submit">Upload</button>
-    </form>
-    <div id="result"></div>
-  </div>
-
-  <script>
-  document.getElementById('uploadForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
-
-    const formData = new FormData(this);
-    const resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = 'Uploading...';
-
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/upload/', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) throw new Error('Upload failed');
-
-      const data = await response.json();
-
-      resultDiv.innerHTML = `
-        <h3>Upload Success ✅</h3>
-        <h4>Detected PII:</h4>
-        <pre>${JSON.stringify(data.results, null, 2)}</pre>
-      `;
-    } catch (error) {
-      resultDiv.innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
-    }
-  });
-</script>
-
-</body>
-</html> -->
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PII Document Upload</title>
@@ -157,6 +74,126 @@
         `;
       } catch (error) {
         resultDiv.innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
+      }
+    });
+  </script>
+</body>
+</html> -->
+<!-- ------------------------------------------------- -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PII Document Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      border-radius: 10px;
+      padding: 2rem;
+      max-width: 500px;
+      margin: auto;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    input[type="file"] {
+      margin-bottom: 1rem;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    pre {
+      background: #e8e8e8;
+      padding: 1rem;
+      white-space: pre-wrap;
+      border-radius: 5px;
+      margin-top: 1rem;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    #downloadBtn {
+      margin-top: 1rem;
+      display: none; /* hidden initially */
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Upload a Document or Image</h2>
+    <form id="uploadForm">
+      <input type="file" name="file" accept=".txt,image/*" required />
+      <br />
+      <button type="submit">Upload</button>
+    </form>
+    <div id="result"></div>
+    <button id="downloadBtn">Download Masked Text</button>
+  </div>
+
+  <script>
+    const uploadForm = document.getElementById('uploadForm');
+    const resultDiv = document.getElementById('result');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    uploadForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const formData = new FormData(this);
+      resultDiv.innerHTML = 'Uploading...';
+      downloadBtn.style.display = 'none'; // hide download button
+
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/upload/', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) throw new Error('Upload failed: ' + response.statusText);
+
+        const data = await response.json();
+
+        // Display detected PII nicely
+        let piiHtml = '<h3>Upload Success ✅</h3><h4>Detected PII:</h4>';
+        if (Object.keys(data.results).length === 0) {
+          piiHtml += '<p>No PII found.</p>';
+        } else {
+          piiHtml += `<pre>${JSON.stringify(data.results, null, 2)}</pre>`;
+        }
+
+        // Display masked text
+        piiHtml += '<h4>Masked Text:</h4>';
+        piiHtml += `<pre id="maskedText">${data.masked_text || 'No masked text available.'}</pre>`;
+
+        resultDiv.innerHTML = piiHtml;
+
+        // Show download button and setup click handler
+        if (data.masked_text) {
+          downloadBtn.style.display = 'inline-block';
+          downloadBtn.onclick = () => {
+            const blob = new Blob([data.masked_text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'masked_text.txt';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          };
+        } else {
+          downloadBtn.style.display = 'none';
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
+        downloadBtn.style.display = 'none';
       }
     });
   </script>
